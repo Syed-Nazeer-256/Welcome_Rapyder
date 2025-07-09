@@ -2,6 +2,77 @@ import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 from streamlit_cropper import st_cropper
+import requests
+import os
+
+# Function to download and cache fonts
+@st.cache_data
+def download_font(font_url, font_name):
+    """Download font from URL and save locally"""
+    try:
+        response = requests.get(font_url)
+        if response.status_code == 200:
+            font_path = f"{font_name}.ttf"
+            with open(font_path, 'wb') as f:
+                f.write(response.content)
+            return font_path
+    except Exception as e:
+        st.warning(f"Could not download {font_name}: {e}")
+    return None
+
+# Function to get font with fallback
+def get_font(font_size, bold=False):
+    """Get font with fallback options"""
+    font_urls = {
+        'poppins_bold': 'https://fonts.gstatic.com/s/poppins/v20/pxiByp8kv8JHgFVrLDD4Z1xlFd2JQEk.woff2',
+        'poppins_regular': 'https://fonts.gstatic.com/s/poppins/v20/pxiEyp8kv8JHgFVrJJfecg.woff2',
+        'dmsans_bold': 'https://fonts.gstatic.com/s/dmsans/v11/rP2Hp2ywxg089UriCZOIHQ.woff2',
+        'dmsans_regular': 'https://fonts.gstatic.com/s/dmsans/v11/rP2Hp2ywxg089UriCZOIHQ.woff2'
+    }
+    
+    # Try to use local fonts first (if available)
+    font_attempts = []
+    
+    if bold:
+        font_attempts = [
+            "fonts/Poppins-Bold.ttf",
+            "fonts/DMSans-Bold.ttf", 
+            "Poppins-Bold.ttf",
+            "DMSans-Bold.ttf"
+        ]
+    else:
+        font_attempts = [
+            "fonts/Poppins-Regular.ttf",
+            "fonts/DMSans-Regular.ttf",
+            "Poppins-Regular.ttf", 
+            "DMSans-Regular.ttf"
+        ]
+    
+    # Try local fonts
+    for font_path in font_attempts:
+        try:
+            if os.path.exists(font_path):
+                return ImageFont.truetype(font_path, font_size)
+        except:
+            continue
+    
+    # If no local fonts, try system fonts
+    system_fonts = [
+        "Arial-Bold" if bold else "Arial",
+        "Helvetica-Bold" if bold else "Helvetica",
+        "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf",
+        "/System/Library/Fonts/Arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    ]
+    
+    for font_name in system_fonts:
+        try:
+            return ImageFont.truetype(font_name, font_size)
+        except:
+            continue
+    
+    # Final fallback to default font
+    return ImageFont.load_default()
 
 # Function to create a circular mask
 def create_circular_mask(size):
@@ -42,7 +113,7 @@ if uploaded_image is not None:
         preview_user_photo = cropped_image.convert("RGBA").resize(preview_photo_size)
         preview_mask = create_circular_mask(preview_photo_size)
         preview_circular_photo = apply_circular_mask(preview_user_photo, preview_mask)
-        st.image(preview_circular_photo, caption="How your photo will look in the circle", use_column_width=False)
+        st.image(preview_circular_photo, caption="How your photo will look in the circle", use_container_width=False)
         st.info("**Important:** Adjust the cropping box to perfectly fit your face/subject within the square. This square will be precisely fitted into the circular area on the card.")
 
 if st.sidebar.button("Generate Card"):
@@ -76,14 +147,11 @@ if st.sidebar.button("Generate Card"):
 
         card.paste(circular_photo, (photo_x, photo_y), circular_photo)
 
-        # Add user name
+        # Add user name with improved font handling
         draw = ImageDraw.Draw(card)
-        try:
-            name_font_size = 80 # Scaled font size
-            name_font = ImageFont.truetype("arialbd.ttf", name_font_size)
-        except IOError:
-            st.warning("Arial Bold font not found. Using default font.")
-            name_font = ImageFont.load_default()
+        name_font_size = 80 # Scaled font size
+        name_font = get_font(name_font_size, bold=True)
+        
         name_text = user_name.upper()
         name_bbox = draw.textbbox((0, 0), name_text, font=name_font)
         name_width = name_bbox[2] - name_bbox[0]
@@ -91,13 +159,10 @@ if st.sidebar.button("Generate Card"):
         name_y = 1400 # Scaled position (adjusted)
         draw.text((name_x, name_y), name_text, fill="#fc3030", font=name_font)
 
-        # Add job title
-        try:
-            title_font_size = 50 # Scaled font size
-            title_font = ImageFont.truetype("arial.ttf", title_font_size)
-        except IOError:
-            st.warning("Arial font not found. Using default font.")
-            title_font = ImageFont.load_default()
+        # Add job title with improved font handling
+        title_font_size = 50 # Scaled font size
+        title_font = get_font(title_font_size, bold=False)
+        
         title_text = job_title.upper()
         title_bbox = draw.textbbox((0, 0), title_text, font=title_font)
         title_width = title_bbox[2] - title_bbox[0]
@@ -109,7 +174,7 @@ if st.sidebar.button("Generate Card"):
         card = card.convert("RGB")
 
         # Display the card
-        st.image(card, caption="Your Digital Business Card", use_column_width=True)
+        st.image(card, caption="Your Digital Business Card", use_container_width=True)
 
         # Download button
         buf = BytesIO()
