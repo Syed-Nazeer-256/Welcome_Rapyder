@@ -17,15 +17,15 @@ def apply_circular_mask(image, mask):
     return output
 
 # Streamlit App
-st.set_page_config(page_title="Digital Business Card Generator", page_icon="💳")
+st.set_page_config(page_title="Welcome Creative Generator", page_icon="💳")
 
 st.title("Digital Business Card Generator")
 st.write("Create your own professional digital business card with ease.")
 
 # User Inputs
 st.sidebar.header("Enter Your Details")
-user_name = st.sidebar.text_input("Your Name", "VAIBHAV SATISH KUMAR ARORA")
-job_title = st.sidebar.text_input("Job Title", "SR. ACCOUNT DIRECTOR - ENTERPRISE")
+user_name = st.sidebar.text_input("Your Name", "SWAROOP TR")
+job_title = st.sidebar.text_input("Job Title", "OG GRAPHICS DESIGNER")
 uploaded_image = st.sidebar.file_uploader("Upload Your Photo", type=["png", "jpg", "jpeg"])
 
 cropped_image = None
