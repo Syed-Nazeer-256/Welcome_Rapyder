@@ -32,23 +32,18 @@ cropped_image = None
 if uploaded_image is not None:
     st.sidebar.subheader("Crop Your Photo")
     img = Image.open(uploaded_image)
+    cropped_image = st_cropper(img, realtime_update=True, box_color="blue",
+                                aspect_ratio=(1,1), return_type="image")
 
-    col1, col2 = st.columns(2) # Create two columns
-
-    with col1:
-        cropped_image = st_cropper(img, realtime_update=True, box_color="blue",
-                                    aspect_ratio=(1,1), return_type="image")
-
-    with col2:
-        if cropped_image is not None:
-            st.subheader("Circular Preview")
-            # Process the cropped image to show circular preview
-            preview_photo_size = (200, 200) # Smaller size for preview
-            preview_user_photo = cropped_image.convert("RGBA").resize(preview_photo_size)
-            preview_mask = create_circular_mask(preview_photo_size)
-            preview_circular_photo = apply_circular_mask(preview_user_photo, preview_mask)
-            st.image(preview_circular_photo, caption="How your photo will look in the circle", use_column_width=False)
-            st.info("**Important:** Adjust the cropping box to perfectly fit your face/subject within the square. This square will be precisely fitted into the circular area on the card.")
+    if cropped_image is not None:
+        st.subheader("Circular Preview")
+        # Process the cropped image to show circular preview
+        preview_photo_size = (200, 200) # Smaller size for preview
+        preview_user_photo = cropped_image.convert("RGBA").resize(preview_photo_size)
+        preview_mask = create_circular_mask(preview_photo_size)
+        preview_circular_photo = apply_circular_mask(preview_user_photo, preview_mask)
+        st.image(preview_circular_photo, caption="How your photo will look in the circle", use_column_width=False)
+        st.info("**Important:** Adjust the cropping box to perfectly fit your face/subject within the square. This square will be precisely fitted into the circular area on the card.")
 
 if st.sidebar.button("Generate Card"):
     if cropped_image is not None:
@@ -85,7 +80,7 @@ if st.sidebar.button("Generate Card"):
         draw = ImageDraw.Draw(card)
         try:
             name_font_size = 80 # Scaled font size
-            name_font = ImageFont.truetype("fonts/Poppins-Bold.ttf", name_font_size)
+            name_font = ImageFont.truetype("arialbd.ttf", name_font_size)
         except IOError:
             st.warning("Arial Bold font not found. Using default font.")
             name_font = ImageFont.load_default()
@@ -99,7 +94,7 @@ if st.sidebar.button("Generate Card"):
         # Add job title
         try:
             title_font_size = 50 # Scaled font size
-            title_font = ImageFont.truetype("fonts/Poppins-Regular.ttf", title_font_size)
+            title_font = ImageFont.truetype("arial.ttf", title_font_size)
         except IOError:
             st.warning("Arial font not found. Using default font.")
             title_font = ImageFont.load_default()
