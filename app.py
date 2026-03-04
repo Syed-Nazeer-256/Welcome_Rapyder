@@ -23,18 +23,21 @@ def download_font(font_url, font_name):
 # Function to get font with fallback
 def get_font(font_size, bold=False):
     """Get font with fallback options"""
-    # Try to use local fonts first
+    font_urls = {
+        'poppins_bold': 'https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Bold.ttf',
+        'poppins_regular': 'https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Regular.ttf'
+    }
+    
+    # Try local fonts first
     font_attempts = []
     if bold:
         font_attempts = [
-            "fonts/Poppins-Bold.ttf", "fonts/DMSans-Bold.ttf", 
-            "Poppins-Bold.ttf", "DMSans-Bold.ttf",
+            "fonts/Poppins-Bold.ttf", "Poppins-Bold.ttf",
             "C:\\Windows\\Fonts\\arialbd.ttf", "C:\\Windows\\Fonts\\segoeuib.ttf"
         ]
     else:
         font_attempts = [
-            "fonts/Poppins-Regular.ttf", "fonts/DMSans-Regular.ttf",
-            "Poppins-Regular.ttf", "DMSans-Regular.ttf",
+            "fonts/Poppins-Regular.ttf", "Poppins-Regular.ttf",
             "C:\\Windows\\Fonts\\arial.ttf", "C:\\Windows\\Fonts\\segoeui.ttf"
         ]
     
@@ -46,33 +49,34 @@ def get_font(font_size, bold=False):
         except:
             continue
     
-    # Try by name (Pillow can sometimes find them in standard system paths)
-    system_fonts = ["arial.ttf", "segoeui.ttf", "calibri.ttf"]
-    if bold:
-        system_fonts = ["arialbd.ttf", "segoeuib.ttf", "calibrib.ttf"]
+    # Try downloading if local fails
+    try:
+        url = font_urls['poppins_bold'] if bold else font_urls['poppins_regular']
+        target_name = "Poppins-Bold.ttf" if bold else "Poppins-Regular.ttf"
         
+        # Check if we already downloaded it in this session
+        if os.path.exists(target_name):
+            return ImageFont.truetype(target_name, font_size)
+            
+        # Download it
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+            with open(target_name, 'wb') as f:
+                f.write(response.content)
+            return ImageFont.truetype(target_name, font_size)
+    except Exception as e:
+        print(f"Font download failed: {e}")
+
+    # Try by name if download failed
+    system_fonts = ["arialbd.ttf", "arial.ttf", "segoeui.ttf"]
     for font_name in system_fonts:
         try:
             return ImageFont.truetype(font_name, font_size)
         except:
             continue
             
-    # If on Linux/Mac
-    unix_fonts = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/System/Library/Fonts/Helvetica.ttc"
-    ]
-    for font_path in unix_fonts:
-        try:
-            return ImageFont.truetype(font_path, font_size)
-        except:
-            continue
-    
-    # Final fallback: if default font is used, it will be tiny, so we try one last generic attempt
-    try:
-        return ImageFont.truetype("arial.ttf", font_size)
-    except:
-        return ImageFont.load_default()
+    # Final fallback: if default font is used, it will be tiny
+    return ImageFont.load_default()
 
 # Function to create a circular mask
 def create_circular_mask(size):
