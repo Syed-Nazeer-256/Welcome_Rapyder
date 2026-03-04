@@ -23,32 +23,22 @@ def download_font(font_url, font_name):
 # Function to get font with fallback
 def get_font(font_size, bold=False):
     """Get font with fallback options"""
-    font_urls = {
-        'poppins_bold': 'https://fonts.gstatic.com/s/poppins/v20/pxiByp8kv8JHgFVrLDD4Z1xlFd2JQEk.woff2',
-        'poppins_regular': 'https://fonts.gstatic.com/s/poppins/v20/pxiEyp8kv8JHgFVrJJfecg.woff2',
-        'dmsans_bold': 'https://fonts.gstatic.com/s/dmsans/v11/rP2Hp2ywxg089UriCZOIHQ.woff2',
-        'dmsans_regular': 'https://fonts.gstatic.com/s/dmsans/v11/rP2Hp2ywxg089UriCZOIHQ.woff2'
-    }
-    
-    # Try to use local fonts first (if available)
+    # Try to use local fonts first
     font_attempts = []
-    
     if bold:
         font_attempts = [
-            "fonts/Poppins-Bold.ttf",
-            "fonts/DMSans-Bold.ttf", 
-            "Poppins-Bold.ttf",
-            "DMSans-Bold.ttf"
+            "fonts/Poppins-Bold.ttf", "fonts/DMSans-Bold.ttf", 
+            "Poppins-Bold.ttf", "DMSans-Bold.ttf",
+            "C:\\Windows\\Fonts\\arialbd.ttf", "C:\\Windows\\Fonts\\segoeuib.ttf"
         ]
     else:
         font_attempts = [
-            "fonts/Poppins-Regular.ttf",
-            "fonts/DMSans-Regular.ttf",
-            "Poppins-Regular.ttf", 
-            "DMSans-Regular.ttf"
+            "fonts/Poppins-Regular.ttf", "fonts/DMSans-Regular.ttf",
+            "Poppins-Regular.ttf", "DMSans-Regular.ttf",
+            "C:\\Windows\\Fonts\\arial.ttf", "C:\\Windows\\Fonts\\segoeui.ttf"
         ]
     
-    # Try local fonts
+    # Try specific paths
     for font_path in font_attempts:
         try:
             if os.path.exists(font_path):
@@ -56,23 +46,33 @@ def get_font(font_size, bold=False):
         except:
             continue
     
-    # If no local fonts, try system fonts
-    system_fonts = [
-        "Arial-Bold" if bold else "Arial",
-        "Helvetica-Bold" if bold else "Helvetica",
-        "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf",
-        "/System/Library/Fonts/Arial.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-    ]
-    
+    # Try by name (Pillow can sometimes find them in standard system paths)
+    system_fonts = ["arial.ttf", "segoeui.ttf", "calibri.ttf"]
+    if bold:
+        system_fonts = ["arialbd.ttf", "segoeuib.ttf", "calibrib.ttf"]
+        
     for font_name in system_fonts:
         try:
             return ImageFont.truetype(font_name, font_size)
         except:
             continue
+            
+    # If on Linux/Mac
+    unix_fonts = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/System/Library/Fonts/Helvetica.ttc"
+    ]
+    for font_path in unix_fonts:
+        try:
+            return ImageFont.truetype(font_path, font_size)
+        except:
+            continue
     
-    # Final fallback to default font
-    return ImageFont.load_default()
+    # Final fallback: if default font is used, it will be tiny, so we try one last generic attempt
+    try:
+        return ImageFont.truetype("arial.ttf", font_size)
+    except:
+        return ImageFont.load_default()
 
 # Function to create a circular mask
 def create_circular_mask(size):
@@ -302,27 +302,60 @@ if st.sidebar.button("Generate Card"):
 
         card.paste(circular_photo, (photo_x, photo_y), circular_photo)
 
-        # Add user name with improved font handling
+        # Add user name with improved font handling and multi-line wrapping
         draw = ImageDraw.Draw(card)
-        name_font_size = 80 # Scaled font size
+        name_font_size = 90
         name_font = get_font(name_font_size, bold=True)
         
-        name_text = user_name.upper()
-        name_bbox = draw.textbbox((0, 0), name_text, font=name_font)
-        name_width = name_bbox[2] - name_bbox[0]
-        name_x = (card_width - name_width) // 2  # Center horizontally
-        name_y = 1400 # Scaled position (adjusted)
-        draw.text((name_x, name_y), name_text, fill="#fc3030", font=name_font)
+        # Check if we fell back to default tiny font
+        test_bbox = draw.textbbox((0, 0), "A", font=name_font)
+        line_height = (test_bbox[3] - test_bbox[1]) + 20
+        if (test_bbox[3] - test_bbox[1]) < 20: 
+             st.warning("Warning: Using system default font. Text might appear very small. Please ensure fonts are available.")
+
+        # Multi-line wrapping logic for Name
+        MAX_NAME_WIDTH = 1600
+        words = user_name.upper().split()
+        name_lines = []
+        current_line = []
+        
+        for word in words:
+            test_line = " ".join(current_line + [word])
+            line_bbox = draw.textbbox((0, 0), test_line, font=name_font)
+            if (line_bbox[2] - line_bbox[0]) <= MAX_NAME_WIDTH:
+                current_line.append(word)
+            else:
+                if current_line:
+                    name_lines.append(" ".join(current_line))
+                current_line = [word]
+        if current_line:
+            name_lines.append(" ".join(current_line))
+
+        # Draw name lines
+        start_y = 1380
+        # If multiple lines, start slightly higher to keep it centered
+        if len(name_lines) > 1:
+            start_y -= (len(name_lines) - 1) * (line_height // 2)
+
+        last_name_y = start_y
+        for i, line in enumerate(name_lines):
+            line_bbox = draw.textbbox((0, 0), line, font=name_font)
+            line_w = line_bbox[2] - line_bbox[0]
+            line_x = (card_width - line_w) // 2
+            current_y = start_y + (i * line_height)
+            draw.text((line_x, current_y), line, fill="#fc3030", font=name_font, stroke_width=2, stroke_fill="white")
+            last_name_y = current_y
 
         # Add job title with improved font handling
-        title_font_size = 50 # Scaled font size
+        title_font_size = 55 # Increased slightly
         title_font = get_font(title_font_size, bold=False)
         
         title_text = job_title.upper()
         title_bbox = draw.textbbox((0, 0), title_text, font=title_font)
         title_width = title_bbox[2] - title_bbox[0]
         title_x = (card_width - title_width) // 2  # Center horizontally
-        title_y = 1500 # Scaled position (adjusted)
+        # Dynamic gap below the last name line
+        title_y = last_name_y + line_height + 20 
         draw.text((title_x, title_y), title_text, fill="black", font=title_font)
 
         # Convert to JPEG
